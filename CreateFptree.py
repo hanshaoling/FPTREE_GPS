@@ -98,7 +98,7 @@ def createFPtree(initdic, minSup=1):
         for phenotype in event:
             headerTable[phenotype] = headerTable.get(phenotype, 0) + initdic[event]
             #Counting for every single phenotype.
-    for k in headerTable.keys():
+    for k in list(headerTable.keys()):
         if headerTable[k] < minSup:
             del(headerTable[k])
             #Delete the phenotypes with occuring number < minSup.
