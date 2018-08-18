@@ -27,6 +27,7 @@ for i in range(length):
 #convert is a dict, the key : value is disease_id : phenotype_id(in list).
 pheno_set = list(convert.values())
 #A list of lists, each element list is a group of phenotype occuring together.
+#pheno_set is ready to go in createinit()
 
 #Define a class called node.
 class node:
@@ -129,8 +130,5 @@ def createFPtree(initdic, minSup=1):
             #Return a list of phenotype, selected and ordered.
             updateFPtree(ordered_phenotype, rootTree, headerTable, count)
     return rootTree, headerTable
-
-initdic = createinit(pheno_set)
-FPTREE, HEADERTABLE = createFPtree(initdic)
-
+#Reference:
 #https://blog.csdn.net/songbinxu/article/details/80411388
