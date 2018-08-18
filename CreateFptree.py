@@ -83,7 +83,7 @@ def updateFPtree(event, inTree, headerTable, count):
         #chindren is also in class node.
     else:
         #create new branch.
-        inTree.children[event[0]] = node(event[0], count, inTree)
+        inTree.children[event[0]] = node(event[0], count, inTree)#here envolved creating parents!!
         if headerTable[event[0]][1] == None:
             headerTable[event[0]][1] = inTree.children[event[0]]
         else:
