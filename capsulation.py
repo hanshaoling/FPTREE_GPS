@@ -4,17 +4,50 @@ txt = open(filename)
 data = txt.readlines()
 #Open and load the file. 'data' is a list.
 
-disease = []
-phenotype = []
+disease_origin = []
+phenotype_origin = []
 for x in data:
     disease_i = x.split('\t')[0].strip()
     phenotype_i = x.split('\t')[1].strip()
-    disease.append(disease_i)
-    phenotype.append(phenotype_i)
+    disease_origin.append(disease_i)
+    phenotype_origin.append(phenotype_i)
 #Delete the header of the table.
-disease = disease[1:]
-phenotype = phenotype[1:]
-#disease and phenotype are lists now.
+disease_origin = disease_origin[1:]
+phenotype_origin = phenotype_origin[1:]
+
+disease_dict = {}
+#pairing origin id and integer
+disease_unique = []
+for x in disease_origin:
+    if x not in disease_unique:
+        disease_unique.append(x)
+
+i = 1
+for x in disease_unique:
+    if x not in disease_dict:
+        disease_dict[x] = i
+    i += 1
+
+phenotype_dict = {}
+phenotype_unique = []
+for x in phenotype_origin:
+    if x not in phenotype_unique:
+        phenotype_unique.append(x)
+
+i = 1
+for x in phenotype_unique:
+    if x not in phenotype_dict:
+        phenotype_dict[x] = i
+    i += 1
+
+disease = []
+for x in disease_origin:
+    disease.append(disease_dict[x])
+phenotype = []
+for x in phenotype_origin:
+    phenotype.append(phenotype_dict[x])
+#disease and phenotype are lists now, using
+#integer to store information, instead of string.
 
 convert = {}
 length = len(disease)
@@ -126,8 +159,8 @@ def createFPtree(initdic, minSup = 1):
     return rootTree, headerTable
 
 initdic = createinit(pheno_set)
-FPTREE, HEADERTABLE = createFPtree(initdic)
-
+threshold = int(input('The minimal SUPPORT is set to: '))
+FPTREE, HEADERTABLE = createFPtree(initdic, threshold)
 
 #Find the parent of a given node and output a complete path.
 #This function will be called and explained in the next function.
@@ -172,4 +205,18 @@ def mineFPtree(FPTREE, headerTable, minSup = 1, freqItemList = [], prefix = set(
             mineFPtree(conditiontree, conditionhead, minSup, freqItemList, newfreqset)
     return freqItemList
 
-mineFPtree(FPTREE, HEADERTABLE)
+#For reverse rearching in dict.
+def reverse_lookup(dict, value):
+    for key in dict:
+        if dict[key] == value:
+            return key
+
+final = mineFPtree(FPTREE, HEADERTABLE, threshold)
+#Convert the output from index to origin phenotype id.
+for x in final:
+    y = list(x)
+    origin = []
+    for each in y:
+        each_origin = reverse_lookup(phenotype_dict, each)
+        origin.append(each_origin)
+    print(origin)
