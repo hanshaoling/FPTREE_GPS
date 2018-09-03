@@ -266,9 +266,14 @@ for i in range(len(sorted_list)):
     for j in range(len(sorted_list[i])):
         sorted_list_origin[i][j] = reverse_lookup(phenotype_dict, list(sorted_list[i])[j])
 sorted_list_origin = sorted(sorted_list_origin, key=lambda x: len(x), reverse=True)
-print('The frequent sets: ', sorted_list_origin)
 
-rules = get_association(sorted_list)
+print('The frequent sets: ')
+print(*sorted_list_origin, sep = '\n')
+
+print('*' * 20)
+
+confidence_threshold = float(input('The minimal CONFIDENCE is set to: '))
+rules = get_association(sorted_list, confidence_threshold)
 
 for key, value in rules.items():
     key_list = list(key)
@@ -277,6 +282,3 @@ for key, value in rules.items():
         for j in range(len(key_list[i])):
             key_list[i][j] = reverse_lookup(phenotype_dict, key_list[i][j])
     print('Rules: ', key_list[0], 'to', key_list[1], '| Confidence: ', value)
-    
-
-
