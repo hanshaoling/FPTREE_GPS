@@ -129,27 +129,66 @@ def createFPtree(initdic, minSup):
 
 initdic = createinit(pheno_set)
 
-filehandle = open('hp.obo')
+filehandle = open('hpo1009.txt')
 fileload = filehandle.read()
 txtsplit = fileload.split('\n\n')
 # txtsplit is a list of chunks.
-terms = txtsplit[2:]
-del terms[-1]
+terms = txtsplit[1:]
+
 term_id_list = []
+term_id_list_inuse = []
 term_name_list = []
 name_dic = {}
+parent_offspring = set()
 
 import re
+
 for term in terms:
     id = int(re.search('id: HP:(\d+)', term).group(1))
     name = re.search('\nname: (.+)\n', term).group(1)
+    parents = re.findall('is_a: HP:(\d+)', term)
+    if len(parents) != 0:
+        term_id_list_inuse.append(id)
+        for i in range(len(parents)):
+            parents[i] = int(parents[i])
     term_id_list.append(id)
     term_name_list.append(name)
+    if len(parents) != 0:
+        for i in range(len(parents)):
+            parent_offspring.add((parents[i], id))
 
-for i in range(len(term_id_list)) :
+for i in range(len(term_id_list)):
     name_dic[term_id_list[i]] = term_name_list[i]
 
 
+import networkx as nx
+
+from networkx import all_neighbors, ancestors, descendants
+list_PO = list(parent_offspring)
+G = nx.DiGraph()
+G.add_edges_from(list_PO)
+# convert is a dict ,{disease_id : list of specific phenotypes}
+# print(convert)
+# Inflate the dict to calculate information content.
+# print(convert.items())
+def inflate(ls):
+    for each in ls:
+        ls.extend(list(ancestors(G, each)))
+    return set(ls)
+
+convert_inflate = convert
+for each in list(convert_inflate.keys()):
+    convert_inflate[each] = inflate(convert_inflate[each])
+
+AnnoNum = {}
+# Dict, phenoID : number of annotation
+for each in convert_inflate.values():
+    each = list(each)
+    for every in each:
+        if every not in AnnoNum:
+            AnnoNum[every] = 1
+        if every in AnnoNum:
+            AnnoNum[every] += 1
 
 dillfile = 'base.pkl'
 dill.dump_session(dillfile)
