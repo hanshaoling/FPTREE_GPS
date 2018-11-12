@@ -1,8 +1,10 @@
+import math
+from networkx import all_neighbors, ancestors, descendants
 import dill
 dillfile = 'base.pkl'
 dill.load_session(dillfile)
-#print(pheno_set)
-#print(initdic)
+# print(pheno_set)
+# print(initdic)
 threshold = input('The minimal SUPPORT is set to: ')
 if threshold == '':
     print('Default value: 10')
@@ -14,11 +16,14 @@ FPTREE, HEADERTABLE = createFPtree(initdic, threshold)
 # Find the parent of a given node and output a complete path.
 # This function will be called and explained in the next function.
 # prefixpath will be assigned as an empty list.
+
+
 def completepath(node, prefixpath):
-    # node is an object in class node and prefixpath is a list
+    # node is an object in class node and prefixpath is a list.
     if node.parent != None:
         prefixpath.append(node.name)
         completepath(node.parent, prefixpath)
+
 
 def findcompletepath(phenotype, headerTable):
     node = headerTable[phenotype][1]
@@ -38,6 +43,8 @@ def findcompletepath(phenotype, headerTable):
     # a dict containing key : value pair -- frozenset of prefix of a phenotype :  count of this prefix.
 
 # Capsule these functions.
+
+
 def mineFPtree(FPTREE, headerTable, minSup = 10, freqItemList = [], prefix = set([])):
     ordered = sorted(headerTable.items(), key=lambda x: x[0])
     orderedHTB = []
@@ -141,9 +148,56 @@ for rule, confidence in rules.items():
     lift = lift_filter(rule_list[0], rule_list[1])
     rules[rule] = (confidence, lift)
 
-def set_similariry(set1, set2):
+AnnoNum = {}
+# Dict, phenoID : number of annotation
+for each in convert_inflate.values():
+    each = list(each)
+    for every in each:
+        if every not in AnnoNum:
+            AnnoNum[every] = 1
+        if every in AnnoNum:
+            AnnoNum[every] += 1
+
+
+def GetIC(term):
+    return (math.log(AnnoNum[1]/AnnoNum[term]))
+
+def GetMICA_IC(term1, term2):
+    ancestor_set1 = ancestors(G, term1)
+    ancestor_set2 = ancestors(G, term2)
+    common_set = ancestor_set1 & ancestor_set2
+    sorted_list = sorted(list(common_set), key = lambda x: GetIC(x), reverse=True)
+    return GetIC(sorted_list[0])
+
+def similarity(term1, term2):
+    sim = 2 * GetMICA_IC(term1, term2) / (GetIC(term1) + GetIC(term2))
+    return sim
+# value (0,1)
+
+def set_similarity(set1, set2):
+    ls = []
+    set_sim = 0
+    for A in set1:
+        for B in set2:
+            ls.append((A, B))
+    for each in ls:
+        set_sim += similarity(each[0], each[1]) ** 2
+    return set_sim / len(ls)
+
+
+'''
+Resnik: sim(term1, term2) = IC(MICA)
+Lin: sim(term1, term2) = 2 * IC(MICA) / (IC(term1) + IC(term2))
+IC: sim(term1, term2) = 1 / (1 + IC(term1) + IC(term2) - 2 * IC(MICA))
+Relevance: sim(term1,term2) = sim_Lin(term1, term2) * (1 - AnnoNum[MICA] / AnnoNum[1, all])
+Information Coefficient: sim(term1, term2) = sim_Lin(term1, term2) * (1 - 1 / (1 + IC(MICA)))
+'''
+
+
+
+'''def set_similariry(set1, set2):
     similarity = len(set1 & set2) / len(set1 | set2)
-    return similarity
+    return similarity'''
 #print(rules)
 #print(set_similariry(set([1250]), (frozenset({1250, 1252, 1263}))))
 
@@ -155,10 +209,10 @@ while True:
     set_input = frozenset(set_input)
     rules_filter = {}
     for rule, tuple in rules.items():
-        a = set_similariry(set_input, rule[0])
+        a = set_similarity(set_input, rule[0])
         # tuple: confidence, lift, memo: support of FROM
         rules_filter[rule] = tuple + (a, memo[rule[0]])
-    rules_filter = sorted(rules_filter.items(), key = lambda x: (x[1][2], x[1][0]), reverse=True)
+    rules_filter = sorted(rules_filter.items(), key=lambda x: (x[1][2], x[1][0]), reverse=True)
 
     rules_wanted = []
     for x in rules_filter[:30]:
