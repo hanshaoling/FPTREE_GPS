@@ -1,0 +1,232 @@
+import math
+from networkx import all_neighbors, ancestors, descendants
+import dill
+dillfile = 'base.pkl'
+dill.load_session(dillfile)
+# print(pheno_set)
+# print(initdic)
+threshold = input('The minimal SUPPORT is set to: ')
+if threshold == '':
+    print('Default value: 10')
+    threshold = 10
+else:
+    threshold = int(threshold)
+FPTREE, HEADERTABLE = createFPtree(initdic, threshold)
+
+# Find the parent of a given node and output a complete path.
+# This function will be called and explained in the next function.
+# prefixpath will be assigned as an empty list.
+
+
+def completepath(node, prefixpath):
+    # node is an object in class node and prefixpath is a list.
+    if node.parent != None:
+        prefixpath.append(node.name)
+        completepath(node.parent, prefixpath)
+
+
+def findcompletepath(phenotype, headerTable):
+    node = headerTable[phenotype][1]
+    # A node class object, as the lowest level of this path, corresponding a certain phenotype.
+    completeset = {}
+    # a new dict to store the results: a set of all possible group of phenotypes starting from a certain phenotype.
+    # (searching in one direction)
+    while node != None:
+        prefixpath = []
+        completepath(node, prefixpath)
+        # results are stored in list 'prefixpath'
+        if len(prefixpath) > 1:
+            completeset[frozenset(prefixpath[1:])] = node.count
+        node = node.nodeLink
+        # continue to the next node(but with the same phenotype)
+    return completeset
+    # a dict containing key : value pair -- frozenset of prefix of a phenotype :  count of this prefix.
+
+# Capsule these functions.
+
+
+def mineFPtree(FPTREE, headerTable, minSup = 10, freqItemList = [], prefix = set([])):
+    ordered = sorted(headerTable.items(), key=lambda x: x[0])
+    orderedHTB = []
+    for each in ordered:
+        orderedHTB.append(each[0])
+
+    for each in orderedHTB:
+        newfreqset = prefix.copy()
+        newfreqset.add(each)
+        freqItemList.append(newfreqset)
+        conditionbase = findcompletepath(each, headerTable)
+        conditiontree, conditionhead = createFPtree(conditionbase, minSup)
+        if conditionhead != None:
+            mineFPtree(conditiontree, conditionhead, minSup, freqItemList, newfreqset)
+    return freqItemList
+
+final = mineFPtree(FPTREE, HEADERTABLE, threshold)
+# Sort the list by length.
+sorted_list = sorted(final, key=lambda x: len(x), reverse=True)
+
+# Get all REAL subset of a listed-freqset. Return is a list of list. [[...], [...], [...], ...]
+def getsubset(set):
+    N = len(set)
+    subset = []
+    for i in range(2 ** N):
+        combo = []
+        for j in range(N):
+            if ( i >> j ) % 2 == 1:
+                combo.append(set[j])
+        if combo != [] and len(combo) != N:
+            subset.append(combo)
+    return subset
+
+# Counting for subset.
+memo = {}
+def count_subset(subset): # subset is a frozenset derived from list.
+    ls = list(initdic.keys())
+    count = 0
+    if subset in memo:
+        return memo[subset]
+    for each in ls:
+        if subset.issubset(each):
+            count += 1
+    memo[subset] = count
+    return count
+
+def get_association(sorted_list, minconfidence = 0.5):
+    rules = {}
+    for freqset in sorted_list:
+        freq_listed = list(freqset)
+        freq_subset = getsubset(freq_listed)
+        for each in freq_subset:
+            a = frozenset(each)
+            count = count_subset(a)
+            confidence  = count_subset(frozenset(freqset)) / count
+            if confidence >= minconfidence:
+                goodrule = (a, frozenset(freqset) - a)
+                rules[goodrule] = confidence
+    return rules
+
+# Convert the output from index to origin phenotype id.
+sorted_list_origin = []
+for i in range(len(sorted_list)):
+    sorted_list_origin.append(list(sorted_list[i]))
+    for j in range(len(sorted_list[i])):
+        sorted_list_origin[i][j] = name_dic[int(sorted_list_origin[i][j])]
+sorted_list_origin = sorted(sorted_list_origin, key=lambda x: len(x), reverse=True)
+
+'''
+print('The frequent sets: ')
+print(*sorted_list_origin, sep = '\n')
+print('*' * 20)
+'''
+
+confidence_threshold = input('The minimal CONFIDENCE is set to: ')
+if confidence_threshold == '':
+    print('Default value: 0.5')
+    confidence_threshold = 0.5
+else:
+    confidence_threshold = float(confidence_threshold)
+rules = get_association(sorted_list, confidence_threshold)
+
+def lift_filter(FROM, TO):
+    n_total = len(disease_unique)
+    lift = (memo[frozenset(list(FROM) + list(TO))] * n_total) / (memo[FROM] * memo[TO])
+    return lift
+    '''
+    if lift < 1:
+        return 'Conflicting! LIFT = %f' %(lift)
+    elif lift == 1:
+        return 'Independent! LIFT = %f' %(lift)
+    elif 1 < lift < 3:
+        return 'Valid! LIFT = %f' %(lift)
+    else:
+        return 'Strong valid! LIFT = %f' %(lift)
+    '''
+
+
+for rule, confidence in rules.items():
+    rule_list = list(rule)
+    lift = lift_filter(rule_list[0], rule_list[1])
+    rules[rule] = (confidence, lift)
+
+AnnoNum = {}
+# Dict, phenoID : number of annotation
+for each in convert_inflate.values():
+    each = list(each)
+    for every in each:
+        if every not in AnnoNum:
+            AnnoNum[every] = 1
+        if every in AnnoNum:
+            AnnoNum[every] += 1
+
+
+def GetIC(term):
+    return (math.log(AnnoNum[1]/AnnoNum[term]))
+
+def GetMICA_IC(term1, term2):
+    ancestor_set1 = ancestors(G, term1)
+    ancestor_set2 = ancestors(G, term2)
+    common_set = ancestor_set1 & ancestor_set2
+    sorted_list = sorted(list(common_set), key = lambda x: GetIC(x), reverse=True)
+    return GetIC(sorted_list[0])
+
+def similarity(term1, term2):
+    sim = 2 * GetMICA_IC(term1, term2) / (GetIC(term1) + GetIC(term2))
+    return sim
+# value (0,1)
+
+def set_similarity(set1, set2):
+    ls = []
+    set_sim = 0
+    for A in set1:
+        for B in set2:
+            ls.append((A, B))
+    for each in ls:
+        set_sim += similarity(each[0], each[1]) ** 2
+    return math.sqrt(set_sim / len(ls))
+
+
+'''
+Resnik: sim(term1, term2) = IC(MICA)
+Lin: sim(term1, term2) = 2 * IC(MICA) / (IC(term1) + IC(term2))
+IC: sim(term1, term2) = 1 / (1 + IC(term1) + IC(term2) - 2 * IC(MICA))
+Relevance: sim(term1,term2) = sim_Lin(term1, term2) * (1 - AnnoNum[MICA] / AnnoNum[1, all])
+Information Coefficient: sim(term1, term2) = sim_Lin(term1, term2) * (1 - 1 / (1 + IC(MICA)))
+'''
+
+
+
+'''def set_similariry(set1, set2):
+    similarity = len(set1 & set2) / len(set1 | set2)
+    return similarity'''
+#print(rules)
+#print(set_similariry(set([1250]), (frozenset({1250, 1252, 1263}))))
+
+
+while True:
+    set_input = input('phenotype input: ').split(sep = ',')
+    for i in range(len(set_input)):
+        set_input[i] = int(set_input[i])
+    set_input = frozenset(set_input)
+    rules_filter = {}
+    for rule, tuple in rules.items():
+        a = set_similarity(set_input, rule[0])
+        # tuple: confidence, lift, memo: support of FROM
+        rules_filter[rule] = tuple + (a, memo[rule[0]])
+    rules_filter = sorted(rules_filter.items(), key=lambda x: (x[1][2], x[1][0]), reverse=True)
+
+    rules_wanted = []
+    for x in rules_filter[:30]:
+        FROM_LIST = list(x[0][0])
+        TO_LIST = list(x[0][1])
+        for i in range(len(FROM_LIST)):
+            FROM_LIST[i] = name_dic[FROM_LIST[i]]
+        for j in range(len(TO_LIST)):
+            TO_LIST[j] = name_dic[TO_LIST[j]]
+        rules_wanted.append([FROM_LIST, TO_LIST, list(x[1])])
+
+    for each_rule in rules_wanted:
+        print('From: ', each_rule[0], '\n', 'To: ', each_rule[1], '\nConfidence: ', each_rule[2][0], '|Lift: ', each_rule[2][1], '|Similarity: ', each_rule[2][2], '|Support: ', each_rule[2][3], '\n')
+
+    print('##########################################################')
+
+    #print(*rules_wanted, sep='\n')
